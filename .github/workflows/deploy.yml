@@ -43,9 +43,11 @@ jobs:
     - name: Set AKS Context
       uses: azure/aks-set-context@v4
       with:
-        creds: ${{ secrets.AZURE_CREDENTIALS }}
+        #creds: ${{ secrets.AZURE_CREDENTIALS }}
         resource-group: 'RG_AKS' # Ensure this matches your actual RG name
         cluster-name: 'akscluster' # Ensure this matches your actual cluster name
+        admin: 'false'
+        use-kubelogin: 'true'
 
     # 6. Dynamically update the deployment.yaml with the fresh image tag and apply it
     - name: Deploy Manifests to AKS
