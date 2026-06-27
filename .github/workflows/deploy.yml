@@ -30,6 +30,12 @@ jobs:
       run: |
         docker build -t ${{ secrets.ACR_LOGIN_SERVER }}/test-app:${{ github.sha }} .
         docker push ${{ secrets.ACR_LOGIN_SERVER }}/test-app:${{ github.sha }}
+        
+# --- INSERT THIS NEW STEP HERE ---
+    - name: Set up kubelogin
+      uses: azure/use-kubelogin@v1
+      with:
+        version: 'v0.0.34' # Installs the required binary helper tool
 
     # 5. Connect to your AKS Cluster target
     - name: Set AKS Context
