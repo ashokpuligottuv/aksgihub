@@ -1,0 +1,13 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: github-actions-binding
+  namespace: default
+subjects:
+- kind: User
+  name: "a241a7ff-7c9f-48f6-a521-a940b1b8399d" # The ID from your error log
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: edit # Provides permission to create/modify Deployments and Services
+  apiGroup: rbac.authorization.k8s.io
