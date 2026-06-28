@@ -4,10 +4,32 @@ on:
   push:
     branches:
       - main # Triggers the pipeline every time you push code to the main branch
+    paths:
+      - 'server.js' # Triggers the pipeline when server.js is modified
+      - 'Dockerfile' # Triggers the pipeline when Dockerfile is modified
+      - 'deployment.yaml' # Triggers the pipeline when deployment.yaml is modified
 
 jobs:
+  check-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      changes_detected: ${{ steps.filter.outputs.app }}
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            app:
+              - 'server.js'
+              - 'Dockerfile'
+
+
   build-and-deploy:
     runs-on: ubuntu-latest
+    needs: check-changes
+  
     
     steps:
     # 1. Checkout the application source code from Git
@@ -22,11 +44,13 @@ jobs:
 
     # 3. Log in to your private Azure Container Registry
     - name: Login to ACR
+      if: needs.check-changes.outputs.changes_detected == 'true'
       run: |
         az acr login --name ${{ secrets.ACR_NAME }}
 
     # 4. Build the image locally in GitHub and push it directly to ACR
     - name: Build and Push Docker Image
+      if: needs.check-changes.outputs.changes_detected == 'true'
       run: |
         docker build -t ${{ secrets.ACR_LOGIN_SERVER }}/test-app:${{ github.sha }} .
         docker push ${{ secrets.ACR_LOGIN_SERVER }}/test-app:${{ github.sha }}
@@ -51,7 +75,16 @@ jobs:
 
     # 6. Dynamically update the deployment.yaml with the fresh image tag and apply it
     - name: Deploy Manifests to AKS
+      env:
+        ADD_SERVICE_PRINCIPAL: ${{ secrets.AZURE_CLIENT_ID }}
+        ADD_SERVICE_PRINCIPAL_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
       run: |
+        # If the app didn't change, we point to the latest commit that actually updated the app
+        if [ "${{ needs.check-changes.outputs.app_changed }}" = "true" ]; then
+          IMAGE_TAG="${{ github.sha }}"
+        else
+          IMAGE_TAG="latest" # Or fallback to a stable static track tag
+        fi
         # Replace the placeholder or old tag in deployment.yaml with the unique GitHub commit SHA
         sed -i 's|image: .*|image: ${{ secrets.ACR_LOGIN_SERVER }}/test-app:${{ github.sha }}|g' deployment.yaml
         
