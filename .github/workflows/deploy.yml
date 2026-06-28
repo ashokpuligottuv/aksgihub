@@ -74,17 +74,24 @@ jobs:
     # 6. Dynamically update the deployment.yaml with the fresh image tag and apply it
     - name: Deploy Manifests to AKS
       env:
-        ADD_SERVICE_PRINCIPAL: ${{ secrets.AZURE_CLIENT_ID }}
-        ADD_SERVICE_PRINCIPAL_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+        AAD_SERVICE_PRINCIPAL_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+        AAD_SERVICE_PRINCIPAL_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+        AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
       run: |
-        # If the app didn't change, we point to the latest commit that actually updated the app
-        if [ "${{ needs.check-changes.outputs.changes_detected }}" = "true" ]; then
-          IMAGE_TAG="${{ github.sha }}"
+        # 1. Check if the app build job actually ran a code compilation
+        if [ "${{ needs.check-changes.outputs.app_changed }}" = "true" ]; then
+          # If the app changed, deploy the exact unique image built in this commit
+          TARGET_TAG="${{ github.sha }}"
         else
-          IMAGE_TAG="latest" # Or fallback to a stable static track tag
+          # If app code didn't change, tell AKS to pull the latest valid compiled image version
+          TARGET_TAG="latest"
         fi
-        # Replace the placeholder or old tag in deployment.yaml with the unique GitHub commit SHA
-        sed -i 's|image: .*|image: ${{ secrets.ACR_LOGIN_SERVER }}/test-app:${{ github.sha }}|g' deployment.yaml
+
+        echo "Deploying target image tag: ${TARGET_TAG}"
         
-        # Apply the blueprint to the cluster
+        # 2. Update the manifest with the calculated target tag
+        sed -i "s|image: .*|image: ${{ secrets.ACR_LOGIN_SERVER }}/test-app:${TARGET_TAG}|g" deployment.yaml
+        
+        # 3. Apply the updated manifest context
+        export KUBERNETES_EXEC_INFO='{"apiVersion":"client.authentication.k8s.io/v1beta1","kind":"ExecCredential"}'
         kubectl apply -f deployment.yaml
