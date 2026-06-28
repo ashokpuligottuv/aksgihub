@@ -8,6 +8,7 @@ on:
       - 'server.js' # Triggers the pipeline when server.js is modified
       - 'Dockerfile' # Triggers the pipeline when Dockerfile is modified
       - 'deployment.yaml' # Triggers the pipeline when deployment.yaml is modified
+      - 'deploy.yml' # Triggers the pipeline when deploy.yml is modified
 
 jobs:
   check-changes:
